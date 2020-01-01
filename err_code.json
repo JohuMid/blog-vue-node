@@ -1,0 +1,32 @@
+[
+  {
+    "0": "OK"
+  },
+  {
+    "1": "Verification code error"
+  },
+  {
+    "2": "User already exists"
+  },
+  {
+    "3": "Account or password incorrect"
+  },
+  {
+    "4": "Account does not exist"
+  },
+  {
+    "5": "Failed to reset password"
+  },
+  {
+    "6": "User is not logged in"
+  },
+  {
+    "7": "User logs out"
+  },
+  {
+    "8": "No previous"
+  },
+  {
+    "9": "No next post"
+  }
+]
