@@ -17,8 +17,6 @@ router.get('/', function (req, res, next) {
 
 
 //用来存验证码的数组
-var arr = [];
-// 获取注册验证码
 router.get('/vecode', function (req, res) {
 
   var email = req.query.userEmail;
@@ -27,9 +25,31 @@ router.get('/vecode', function (req, res) {
   //系统生成的验证码
   var vecode = createSixNum();
 
+  db.query(`SELECT userEmail FROM user where userEmail = '` + email + `'`, [], function (results, rows) {
+    //验证账号是否存在
+    if (results === '[]') {
+      db.query(`INSERT INTO tempvecode (userEmail,vecode,vTime)
+                VALUES('` + email + `','` + vecode + `',NOW())`, [], function (results, rows) {
+        // 存储临时验证码成功
+        res.status(200).json({
+          err_code: 0,
+          message: 'OK',
+        })
+      })
+
+    } else {
+      res.status(200).json({
+        err_code: 2,
+        message: 'User already exists'
+      })
+    }
+  })
+
+
   console.log(vecode);
-  arr = [];
-  arr.push(vecode);
+  // 待修改
+  /*arr = [];
+  arr.push(vecode);*/
 
   // console.log(arr);
   var mail = {
@@ -44,10 +64,6 @@ router.get('/vecode', function (req, res) {
   };
   nodemail(mail);
 
-  res.status(200).json({
-    err_code: 0,
-    message: 'OK'
-  })
 });
 
 router.post('/register', function (req, res) {
@@ -65,57 +81,51 @@ router.post('/register', function (req, res) {
   var email = body.userEmail
 
 
-  // console.log(body);
   // 用户输入的验证码
-  // console.log(body.userVecode);
-  // 正确的验证码
-  // console.log(Number(arr[0]));
 
-  // 密码md5重复加密
-  // body.password = md5(md5(body.password));
+  db.query(`SELECT vecode from tempvecode WHERE userEmail = '` + email + `';`, [], function (results, rows) {
+    // 正确验证码
+    var tvecode = JSON.parse(results)[0].vecode;
 
-  // console.log(req.session);
+    if (Number(vecode) === Number(tvecode)) {
+      // 验证码输入正确
 
-  if (Number(vecode) === Number(arr[0])) {
-    // 验证码输入正确
-    db.query(`SELECT userEmail FROM user where userEmail = '` + email + `'`, [], function (results, rows) {
-      //验证账号是否存在
-      if (results === '[]') {
-        db.query(`
+      // 账号不存在，存储用户信息
+      db.query(`
                 INSERT INTO user (userName,userPassword,userEmail,userAvatar,userRegDate)
                 VALUES('` + username + `','` + md5(md5(password)) + `','` + email + `','avatar.png',NOW())
                 `, [], function (results, rows) {
 
-          db.query(`SELECT uId FROM user where userEmail = '` + email + `'`, [], function (results, rows) {
-            var uId = JSON.parse(results)[0].uId
+        // 查出用户对应的uId
+        db.query(`SELECT uId FROM user where userEmail = '` + email + `'`, [], function (results, rows) {
+          var uId = JSON.parse(results)[0].uId
 
-            // 存入服务器端的session
-            req.session.user = {
-              token: uuid.v1(),
-              userName: username,
-              uId: uId,
-              userAvatar: 'avatar.png'
-            };
-            // 注册成功
+          // 存入服务器端的session
+          req.session.user = {
+            token: uuid.v1(),
+            userName: username,
+            uId: uId,
+            userAvatar: 'avatar.png'
+          };
+          // 注册成功，删除临时表的验证码
+          db.query(`DELETE FROM tempvecode WHERE userEmail = '` + email + `'`, [], function (results, rows) {
             res.status(200).json({
               err_code: 0,
               message: 'OK',
             })
           })
         })
-      } else {
-        res.status(200).json({
-          err_code: 2,
-          message: 'User already exists'
-        })
-      }
-    })
-  } else {
-    res.status(200).json({
-      err_code: 1,
-      message: 'Verification code error'
-    })
-  }
+      })
+
+    } else {
+      res.status(200).json({
+        err_code: 1,
+        message: 'Verification code error'
+      })
+    }
+  })
+
+
 });
 
 router.post('/login', function (req, res) {
@@ -180,7 +190,7 @@ router.post('/login', function (req, res) {
 
 
 // 密码修改验证码数组
-var rearr = [];
+
 // 忘记密码验证码邮件发送
 router.get('/forvecode', function (req, res, next) {
 
@@ -196,11 +206,14 @@ router.get('/forvecode', function (req, res, next) {
     } else {
       var revecode = createSixNum();
 
-      console.log(revecode);
-
-      rearr.shift()
-      rearr.push(revecode);
-
+      db.query(`INSERT INTO tempvecode (userEmail,vecode,vTime)
+                VALUES('` + email + `','` + revecode + `',NOW())`, [], function (results, rows) {
+        // 存储临时忘记密码验证码成功
+        res.status(200).json({
+          err_code: 0,
+          message: 'OK',
+        })
+      })
 
       var mail = {
         // 发件人
@@ -214,10 +227,6 @@ router.get('/forvecode', function (req, res, next) {
       };
       // 发送邮件
       nodemail(mail);
-      res.status(200).json({
-        err_code: 0,
-        message: 'OK'
-      })
     }
   })
 
@@ -236,36 +245,43 @@ router.post('/forgetpsd', function (req, res, next) {
 
     var email = body.userNewEmail;
 
-    // 验证码不正确
-    if (Number(rearr[0]) !== Number(irevecode)) {
-      res.status(200).json({
-        err_code: 1,
-        message: 'Verification code error'
-      })
-    } else {
+    db.query(`SELECT vecode from tempvecode WHERE userEmail = '` + email + `';`, [], function (results, rows) {
+      // 正确验证码
+      var tvecode = JSON.parse(results)[0].vecode;
 
-      // 用户输入新密码
-      var repsd = body.userNewPassword;
+      // 验证码不正确
+      if (Number(tvecode) !== Number(irevecode)) {
+        res.status(200).json({
+          err_code: 1,
+          message: 'Verification code error'
+        })
+      } else {
 
-      db.query(`
+        // 用户输入新密码
+        var repsd = body.userNewPassword;
+
+        db.query(`
                 UPDATE user SET userPassword='` + md5(md5(repsd)) + `' WHERE userEmail='` + email + `';
             `, [], function (results, rows) {
 
-        results = JSON.parse(results)
+          results = JSON.parse(results)
 
-        if (results.affectedRows === 1) {
-          res.status(200).json({
-            err_code: 0,
-            message: 'OK'
-          });
-        } else {
-          res.status(200).json({
-            err_code: 5,
-            message: 'Failed to reset password'
-          });
-        }
-      })
-    }
+          if (results.affectedRows === 1) {
+            db.query(`DELETE FROM tempvecode WHERE userEmail = '` + email + `'`, [], function (results, rows) {
+              res.status(200).json({
+                err_code: 0,
+                message: 'OK',
+              })
+            })
+          } else {
+            res.status(200).json({
+              err_code: 5,
+              message: 'Failed to reset password'
+            });
+          }
+        })
+      }
+    })
   }
 );
 // 退出登录
