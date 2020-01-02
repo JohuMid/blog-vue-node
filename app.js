@@ -74,7 +74,7 @@ io.on('connection', function (socket) {
 
   socket.on('online', value => {
     // 查询有无消息状态
-    db.query(`SELECT topic.tTopic,topic.tId,user.userName,user.uId,state.type FROM state,user,topic WHERE topic.tId = state.tId and user.uId = state.fromId and state.toId=` + value + ``, [], function (results, rows) {
+    db.query(`SELECT topic.tTopic,topic.tId,user.userName,user.uId,tempstate.type FROM tempstate,user,topic WHERE topic.tId = tempstate.tId and user.uId = tempstate.fromId and tempstate.toId=` + value + ``, [], function (results, rows) {
 
 
       if (results === '[]') {
@@ -82,13 +82,15 @@ io.on('connection', function (socket) {
         socket.emit('connection', null)
       } else {
         socket.emit('connection', results)
+        // 删除状态
+        db.query(`DELETE FROM tempstate WHERE tempstate.toId=` + value + ``, [], function (results, rows) {})
       }
     })
-    // 删除状态
-    db.query(`DELETE FROM state WHERE state.toId=` + value + ``, [], function (results, rows) {})
+
   })
 
   // 服务器接收客户端发送数据
+
 
   // 收藏
   socket.on('star', value => {
@@ -96,7 +98,7 @@ io.on('connection', function (socket) {
     // console.log(value.fromId);
     // console.log(value.toId);
 
-    // 储存点赞的状态
+    // 储存收藏的状态
     db.query(`
                 INSERT INTO state (fromId,toId,tId,type,sTime)
                 VALUES(` + value.fromId + `,` + value.toId + `,` + value.tId + `,'star',NOW())
@@ -105,12 +107,13 @@ io.on('connection', function (socket) {
     })
   })
 
+
   // 关注
   socket.on('like', value => {
     // console.log(value.fromId);
     // console.log(value.toId);
 
-    // 储存点赞的状态
+    // 储存关注的状态
     db.query(`
                 INSERT INTO state (fromId,toId,type,sTime)
                 VALUES(` + value.fromId + `,` + value.toId + `,'like',NOW())
@@ -125,7 +128,7 @@ io.on('connection', function (socket) {
     // console.log(value.fromId);
     // console.log(value.toId);
 
-    // 储存点赞的状态
+    // 储存评论的状态
     db.query(`
                 INSERT INTO state (fromId,toId,tId,type,sTime)
                 VALUES(` + value.fromId + `,` + value.toId + `,` + value.tId + `,'chat',NOW())

@@ -178,6 +178,27 @@ router.get('/userfans', function (req, res, next) {
   })
 })
 
+// 获取当前用户消息数据
+router.get('/usernews', function (req, res, next) {
+  var uId = req.query.uId;
+
+  db.query(`SELECT topic.tTopic,topic.tId,user.userName,user.uId,state.type,state.sTime FROM state,user,topic WHERE topic.tId = state.tId and user.uId = state.fromId and state.toId=` + uId + ` order by sId desc`, [], function (results, rows) {
+
+    var list = results;
+
+    db.query(`SELECT COUNT(*) FROM (SELECT topic.tTopic,topic.tId,user.userName,user.uId,state.type,state.sTime FROM state,user,topic WHERE topic.tId = state.tId and user.uId = state.fromId and state.toId=` + uId + `) AS temp;`, [], function (results, rows) {
+      res.status(200).json({
+        err_code: 0,
+        message: 'OK',
+        results: list,
+        num: results
+      })
+
+    })
+  })
+})
+
+
 
 // 关注
 router.get('/attention', function (req, res) {

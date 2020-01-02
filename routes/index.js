@@ -59,6 +59,18 @@ router.get('/topiclist', function (req, res, next) {
   }
 })
 
+
+router.get('/alltopiclist', function (req, res, next) {
+  db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId order by tId desc`, [], function (results, rows) {
+    res.status(200).json({
+      err_code: 0,
+      message: 'OK',
+      results: results,
+    })
+  })
+})
+
+
 // 查找文章详细信息
 router.post('/topicdetail', function (req, res, next) {
   var body = req.body;
