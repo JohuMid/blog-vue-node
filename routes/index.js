@@ -69,7 +69,15 @@ router.get('/alltopiclist', function (req, res, next) {
     })
   })
 })
-
+router.get('/alluserlist', function (req, res, next) {
+  db.query(`select user.uId,user.userAvatar,user.userName,user.userStatement from user order by uId desc`, [], function (results, rows) {
+    res.status(200).json({
+      err_code: 0,
+      message: 'OK',
+      results: results,
+    })
+  })
+})
 
 // 查找文章详细信息
 router.post('/topicdetail', function (req, res, next) {

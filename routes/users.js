@@ -230,7 +230,6 @@ router.get('/forvecode', function (req, res, next) {
     }
   })
 
-
 });
 // 重置密码
 router.post('/forgetpsd', function (req, res, next) {
@@ -292,7 +291,6 @@ router.get('/logout', function (req, res) {
     message: 'User logs out'
   });
 })
-
 
 //六位数字验证码生成函数
 function createSixNum() {
