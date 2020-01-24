@@ -92,8 +92,8 @@ router.post('/register', function (req, res) {
 
       // 账号不存在，存储用户信息
       db.query(`
-                INSERT INTO user (userName,userPassword,userEmail,userAvatar,userRegDate)
-                VALUES('` + username + `','` + md5(md5(password)) + `','` + email + `','avatar.png',NOW())
+                INSERT INTO user (userName,userPassword,userEmail,userAvatar,userCollectNum,userAttentionNum,userSearchNum,userTopicNum,userLoginNum,userRegDate)
+                VALUES('` + username + `','` + md5(md5(password)) + `','` + email + `','avatar.png',0,0,0,0,0,NOW())
                 `, [], function (results, rows) {
 
         // 查出用户对应的uId
@@ -138,6 +138,7 @@ router.post('/login', function (req, res) {
   console.log(isAdmin);
 
   if (!isAdmin) {
+    // 普通用户登录
     db.query(`SELECT * FROM user where userEmail = '` + email + `' and userPassword ='` + md5(md5(password)) + `'`, [], function (results, rows) {
       //验证账号是否存在
       if (results === '[]') {
@@ -147,6 +148,12 @@ router.post('/login', function (req, res) {
         })
       } else {
         results = JSON.parse(results)[0];
+        db.query(`
+                UPDATE user SET userLoginNum=userLoginNum+1 , userRecentDate=NOW() WHERE uId = ` + results.uId + `;
+            `, [], function (results, rows) {
+
+        })
+
 
         // 存入服务器端的session
         req.session.user = {
@@ -163,6 +170,7 @@ router.post('/login', function (req, res) {
       }
     })
   } else {
+    // 管理员登录
     db.query(`SELECT * FROM admin where adminEmail = '` + email + `' and adminPassword ='` + md5(md5(password)) + `'`, [], function (results, rows) {
       if (results === '[]') {
         res.status(200).json({

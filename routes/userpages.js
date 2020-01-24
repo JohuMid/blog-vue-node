@@ -95,7 +95,7 @@ router.get('/usertopic', function (req, res, next) {
   var currentPage = req.query.currentPage
 
 
-  db.query(`select tId,topic.tTopic,topic.tTime,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.uId='` + uId + `' order by tId desc LIMIT ` + pageNum * (currentPage - 1) + `,` + pageNum + `;`, [], function (results, rows) {
+  db.query(`select user.uId,tId,topic.tTopic,topic.tWords,topic.tTime,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.uId='` + uId + `' order by tId desc LIMIT ` + pageNum * (currentPage - 1) + `,` + pageNum + `;`, [], function (results, rows) {
 
 
     var list = results;
@@ -118,8 +118,7 @@ router.get('/usercollect', function (req, res, next) {
   var currentPage = req.query.currentPage
 
 
-  db.query(`select user.uId,topic.tId,topic.tTopic,topic.tTime,user.userAvatar,user.userName from topic,user,collect WHERE topic.uId = user.uId and collect.tId = topic.tId and collect.uId='` + uId + `' order by cId desc LIMIT ` + pageNum * (currentPage - 1) + `,` + pageNum + `;`, [], function (results, rows) {
-
+  db.query(`select user.uId,topic.tId,topic.tTopic,topic.tWords,topic.tHeadImage,topic.tTime,user.userAvatar,user.userName from topic,user,collect WHERE topic.uId = user.uId and collect.tId = topic.tId and collect.uId='` + uId + `' order by cId desc LIMIT ` + pageNum * (currentPage - 1) + `,` + pageNum + `;`, [], function (results, rows) {
     var list = results;
 
     db.query(`SELECT COUNT(*) FROM (select user.uId,topic.tId,topic.tTopic,topic.tTime,user.userAvatar,user.userName from topic,user,collect WHERE topic.uId = user.uId and collect.tId = topic.tId and collect.uId='` + uId + `') AS temp;`, [], function (results, rows) {
@@ -199,7 +198,6 @@ router.get('/usernews', function (req, res, next) {
 })
 
 
-
 // 关注
 router.get('/attention', function (req, res) {
   var usersId = req.query.usersId
@@ -210,9 +208,16 @@ router.get('/attention', function (req, res) {
                 INSERT INTO attention (uId,usersId,aTime)
                 VALUES(` + uId + `,` + usersId + `,NOW())
                 `, [], function (results, rows) {
-    res.status(200).json({
-      err_code: 0,
-      message: 'OK',
+
+    db.query(`
+                UPDATE user SET userAttentionNum=userAttentionNum+1 WHERE uId=` + usersId + `
+            `, [], function (results, rows) {
+
+      // 发布成功
+      res.status(200).json({
+        err_code: 0,
+        message: 'OK',
+      })
     })
   })
 

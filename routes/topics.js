@@ -3,40 +3,65 @@ var router = express.Router();
 let fs = require('fs');
 var uuid = require('uuid')
 
+var base64 = require('js-base64')
+
 // 数据库操作模块
 var db = require("./../public/javascripts/db");
-var Base64 = require('js-base64').Base64
+
+// 分词模块
+var nodejieba = require("nodejieba");
 
 // 发布文章
 router.post('/publish', function (req, res) {
   var body = req.body;
   var theme = body.userTheme;
   var topic = body.userTopic
+  var model = body.tModel
 
   var uId = body.uId
 
   // 正则匹配第一个图片地址
   var reg = /<\s*img\s+[^>]*?src\s*=\s*(\'|\")(.*?)\1[^>]*?\/?\s*>/;
 
-  var headImage = (Base64.decode(topic).match(reg)[0]);
+  var headImage
 
-  // 获取URL
-  var insertHtml;
-  var re = /src=\"([^\"]*?)\"/i;
-  var arr = headImage.match(re);
-  if (arr != undefined && arr.length > 0) {
-    insertHtml = arr[1];
+  if (!(topic).match(reg)) {
+    headImage = null;
+  } else {
+    headImage = ((topic).match(reg)[0]);
+
+    // 获取URL
+    var insertHtml;
+    var re = /src=\"([^\"]*?)\"/i;
+    var arr = headImage.match(re);
+    if (arr != undefined && arr.length > 0) {
+      insertHtml = arr[1];
+    }
   }
 
   db.query(`
-                INSERT INTO topic (uId,tTopic,tHeadImage,tWords,tContents,tTime)
-                VALUES('` + uId + `','` + theme + `','` + insertHtml + `','` + getWord(Base64.decode(topic)) + `','` + topic + `',NOW())
+                INSERT INTO topic (uId,tTopic,tHeadImage,tWords,tContents,tCollectNum,tChatNum,tModel,tTime)
+                VALUES('` + uId + `','` + theme + `','` + insertHtml + `','` + getWord(topic) + `','` + topic + `',0,0,'` + model + `',NOW())
                 `, [], function (results, rows) {
-    // 发布成功
-    res.status(200).json({
-      err_code: 0,
-      message: 'OK',
+
+    db.query(`
+                UPDATE user SET userTopicNum=userTopicNum+1 WHERE uId=` + uId + `
+            `, [], function (results, rows) {
+
+      // 发布成功
+      res.status(200).json({
+        err_code: 0,
+        message: 'OK',
+      })
     })
+
+    // 分词提取文章标签
+    /*var content = getAllWord((topic))
+
+    var result = nodejieba.extract(content, 4);
+
+    console.log(result);*/
+
   })
 })
 
@@ -75,8 +100,24 @@ router.post('/updatetopic', function (req, res) {
 
   var tId = body.tId
 
+  var reg = /<\s*img\s+[^>]*?src\s*=\s*(\'|\")(.*?)\1[^>]*?\/?\s*>/;
+
+  var headImage
+
+  if (!(topic).match(reg)) {
+    headImage = null;
+  } else {
+    headImage = ((topic).match(reg)[0]);
+    // 获取URL
+    var insertHtml;
+    var re = /src=\"([^\"]*?)\"/i;
+    var arr = headImage.match(re);
+    if (arr != undefined && arr.length > 0) {
+      insertHtml = arr[1];
+    }
+  }
   db.query(`
-                  UPDATE topic SET tTopic='` + theme + `', tContents='` + topic + `' WHERE tId=` + tId + `
+                  UPDATE topic SET tHeadImage='` + insertHtml + `',tTopic='` + theme + `', tContents='` + topic + `' WHERE tId=` + tId + `
                 `, [], function (results, rows) {
 
     // 修改成功
@@ -142,9 +183,15 @@ router.get('/publishchat', function (req, res) {
                 VALUES(` + tId + `,` + uId + `,'` + chat + `',NOW())
                 `, [], function (results, rows) {
 
-    res.status(200).json({
-      err_code: 0,
-      message: 'OK',
+    db.query(`
+                UPDATE topic SET tChatNum=tChatNum+1 WHERE tId=` + tId + `
+            `, [], function (results, rows) {
+
+      // 发布成功
+      res.status(200).json({
+        err_code: 0,
+        message: 'OK',
+      })
     })
   })
 })
@@ -176,10 +223,19 @@ router.get('/collect', function (req, res) {
                 INSERT INTO collect (tId,uId,cTime)
                 VALUES(` + tId + `,` + uId + `,NOW())
                 `, [], function (results, rows) {
-    res.status(200).json({
-      err_code: 0,
-      message: 'OK',
+    db.query(`
+                UPDATE user SET userCollectNum=userCollectNum+1 WHERE uId=(SELECT uId FROM topic WHERE tId=` + tId + `)
+                `, [], function (results, rows) {
+      db.query(`
+                UPDATE topic SET tCollectNum=tCollectNum+1 WHERE tId=` + tId + ``, [], function (results, rows) {
+        res.status(200).json({
+          err_code: 0,
+          message: 'OK',
+        })
+      })
+
     })
+
   })
 
 
@@ -219,7 +275,6 @@ router.get('/isuserstar', function (req, res) {
             where tId=` + tId + ``, [], function (results, rows) {
 
       // console.log(results);
-
       res.status(200).json({
         err_code: 0,
         message: 'OK',
@@ -258,5 +313,13 @@ function getWord(value) {
   return (description.substring(0, 50))
 }
 
+function getAllWord(value) {
+  let description = value.replace(/(\n)/g, "");
+  description = description.replace(/(\t)/g, "");
+  description = description.replace(/(\r)/g, "");
+  description = description.replace(/<\/?[^>]*>/g, "");
+  description = description.replace(/\s*/g, "");
+  return (description)
+}
 
 module.exports = router;

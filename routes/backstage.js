@@ -40,10 +40,31 @@ router.post('/gettopicsdata', function (req, res) {
   if (!uId) {
 
     db.query(`
-            SELECT topic.tId,user.userName,topic.tTopic,topic.tTime FROM
+            SELECT topic.tId,user.userName,topic.tTopic,topic.tModel,topic.tTime FROM
             topic,user WHERE topic.uId=user.uId order by tId LIMIT ` + pageNum * (currentPage - 1) + `,` + pageNum + `;`, [], function (results, rows) {
 
-      var list = results;
+      var res1 = (JSON.parse(results));
+
+      // 转化标签
+      for (var i = 0; i < res1.length; i++) {
+        if (res1[i].tModel) {
+          res1[i].tModel = (JSON.parse(res1[i].tModel));
+        }
+      }
+      for (var j = 0; j < res1.length; j++) {
+        var tagArr = []
+        if (res1[j].tModel) {
+          // console.log(res1[j].tModel[0]);
+          for (var key in res1[j].tModel[0]) {
+            if (res1[j].tModel[0][key] === 1) {
+              tagArr.push(key)
+            }
+          }
+        }
+        res1[j].tModel = tagArr
+      }
+
+      var list = res1;
 
       db.query(`SELECT COUNT(*) from topic;`, [], function (results, rows) {
         res.status(200).json({
@@ -75,9 +96,46 @@ router.post('/gettopicsdata', function (req, res) {
       })
     })
   }
-
-
 })
+router.post('/getspecialtopic', function (req, res) {
+
+  var body = req.body
+  var pageNum = body.pageNum
+  var currentPage = body.currentPage
+  var tag = body.tag
+
+  db.query(`SELECT topic.tId,user.userName,topic.tTopic,topic.tModel,topic.tTime FROM
+            topic,user WHERE topic.uId=user.uId order by tId;`, [], function (results, rows) {
+
+    var res1 = (JSON.parse(results));
+
+    for (var i = 0; i < res1.length; i++) {
+      if (res1[i].tModel) {
+        res1[i].tModel = (JSON.parse(res1[i].tModel));
+      }
+    }
+
+    var tagArr = []
+    for (var j = 0; j < res1.length; j++) {
+      if (res1[j].tModel) {
+        if (res1[j].tModel[0][tag] === 1) {
+          tagArr.push(res1[j])
+        }
+      }
+    }
+    var num = tagArr.length
+
+    tagArr = tagArr.slice(pageNum * (currentPage - 1), pageNum * (currentPage - 1) + pageNum)
+
+    res.status(200).json({
+      err_code: 0,
+      message: 'OK',
+      results: tagArr,
+      num: num
+    })
+  })
+})
+
 
 // 获取评论数据
 router.post('/getchatsdata', function (req, res) {
