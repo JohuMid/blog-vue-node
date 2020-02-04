@@ -19,7 +19,7 @@ var app = express();
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
-      
+
 app.use('/public/', express.static(path.join(__dirname, './public/')))
 
 var bodyParser = require('body-parser');
@@ -87,7 +87,8 @@ io.on('connection', function (socket) {
       } else {
         socket.emit('connection', results)
         // 删除状态
-        db.query(`DELETE FROM tempstate WHERE tempstate.toId=` + value + ``, [], function (results, rows) {})
+        db.query(`DELETE FROM tempstate WHERE tempstate.toId=` + value + ``, [], function (results, rows) {
+        })
       }
     })
 
@@ -139,8 +140,21 @@ io.on('connection', function (socket) {
                 `, [], function (results, rows) {
 
     })
-  })
+  });
+  // 评论
+  socket.on('reply', value => {
+    // 点击收藏
+    // console.log(value.fromId);
+    // console.log(value.toId);
 
+    // 储存评论的状态
+    db.query(`
+                INSERT INTO state (fromId,toId,tId,type,sTime)
+                VALUES(` + value.fromId + `,` + value.toId + `,` + value.tId + `,'reply',NOW())
+                `, [], function (results, rows) {
+
+    })
+  });
 
 
   socket.on('disconnect', function () {

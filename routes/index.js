@@ -5,6 +5,9 @@ var db = require("./../public/javascripts/db");
 // 载入模块
 // var Segment = require('segment');
 
+// 分词模块
+var nodejieba = require("nodejieba");
+
 
 router.get('/', function (req, res, next) {
 
@@ -55,10 +58,8 @@ router.get('/topiclist', function (req, res, next) {
 
   var page = req.query.page
 
-  console.log(page);
-
   if (Number(page) === 0) {
-    db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId order by tId desc LIMIT 8`, [], function (results, rows) {
+    db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,topic.tRecommend,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId order by tId desc LIMIT 8`, [], function (results, rows) {
 
       var list = results;
 
@@ -72,7 +73,7 @@ router.get('/topiclist', function (req, res, next) {
       })
     })
   } else {
-    db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId order by tId desc LIMIT ` + (8 + (page - 1) * 2) + `,2`, [], function (results, rows) {
+    db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,topic.tRecommend,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId order by tId desc LIMIT ` + (8 + (page - 1) * 2) + `,2`, [], function (results, rows) {
 
       res.status(200).json({
         err_code: 0,
@@ -108,12 +109,27 @@ router.post('/topicdetail', function (req, res, next) {
   var body = req.body;
   var topicIndex = body.topicIndex;
 
-  db.query(`SELECT user.uId,topic.tTopic, topic.tContents, topic.tTime,topic.tModel,user.userName,user.userAvatar from topic,user WHERE tId=` + topicIndex + ` and topic.uId = user.uId;`, [], function (results, rows) {
+  db.query(`SELECT user.uId,topic.tTopic, topic.tContents,topic.tRecommend, topic.tTime,topic.tModel,user.userName,user.userAvatar from topic,user WHERE tId=` + topicIndex + ` and topic.uId = user.uId;`, [], function (results, rows) {
 
-    res.status(200).json({
-      err_code: 0,
-      message: 'OK',
-      results: results,
+    var detail = results
+
+    var uId = JSON.parse(results)[0].uId
+
+    // 分词提取文章标签
+    var content = getAllWord(JSON.parse(results)[0].tContents)
+
+    var words = nodejieba.extract(content, 40);
+
+    db.query(`
+           select tId,topic.tTopic from topic,user WHERE topic.uId = user.uId and topic.uId='` + uId + `' order by tId desc LIMIT 3;`, [], function (results, rows) {
+      var topicList = (results);
+      res.status(200).json({
+        err_code: 0,
+        message: 'OK',
+        results: detail,
+        list: topicList,
+        words: words
+      })
     })
   })
 })
@@ -187,7 +203,6 @@ router.get('/tagtopic', function (req, res, next) {
   })
 
 
-
   /*var model = ''
   if (tag == '娱乐') {
     model = `[{"娱乐":1,"汽车":0, "职场":0, "科技":0, "房产":0, "生活":0, "互联网":0, "创投":0, "游戏":0, "c":0, "评测":0, "电影":0, "计算机":0, "体育":0,  "智能":0, "综合":0}]`
@@ -237,5 +252,13 @@ router.get('/tagtopic', function (req, res, next) {
 
 })
 
+function getAllWord(value) {
+  let description = value.replace(/(\n)/g, "");
+  description = description.replace(/(\t)/g, "");
+  description = description.replace(/(\r)/g, "");
+  description = description.replace(/<\/?[^>]*>/g, "");
+  description = description.replace(/\s*/g, "");
+  return (description)
+}
 
 module.exports = router;

@@ -40,7 +40,7 @@ router.post('/gettopicsdata', function (req, res) {
   if (!uId) {
 
     db.query(`
-            SELECT topic.tId,user.userName,topic.tTopic,topic.tModel,topic.tTime FROM
+            SELECT topic.tId,user.userName,topic.tTopic,topic.tModel,topic.tRecommend,topic.tTime FROM
             topic,user WHERE topic.uId=user.uId order by tId LIMIT ` + pageNum * (currentPage - 1) + `,` + pageNum + `;`, [], function (results, rows) {
 
       var res1 = (JSON.parse(results));
@@ -64,7 +64,7 @@ router.post('/gettopicsdata', function (req, res) {
         res1[j].tModel = tagArr
       }
 
-      var list = res1;
+      var list = JSON.stringify(res1);
 
       db.query(`SELECT COUNT(*) from topic;`, [], function (results, rows) {
         res.status(200).json({
@@ -205,5 +205,19 @@ router.get('/deltopic', function (req, res) {
   })
 
 })
+
+// 文章推荐评级
+router.get('/rate', function (req, res) {
+  var tId = req.query.tId;
+  var recommend = req.query.value
+
+  db.query(`UPDATE topic SET tRecommend = ` + recommend + ` WHERE tId = ` + tId + ``, [], function (results, rows) {
+    res.status(200).json({
+      err_code: 0,
+      message: 'OK',
+    })
+  })
+})
+
 
 module.exports = router;

@@ -8,8 +8,6 @@ var base64 = require('js-base64')
 // 数据库操作模块
 var db = require("./../public/javascripts/db");
 
-// 分词模块
-var nodejieba = require("nodejieba");
 
 // 发布文章
 router.post('/publish', function (req, res) {
@@ -48,19 +46,19 @@ router.post('/publish', function (req, res) {
                 UPDATE user SET userTopicNum=userTopicNum+1 WHERE uId=` + uId + `
             `, [], function (results, rows) {
 
+      // 分词提取文章标签
+      /*var content = getAllWord((topic))
+
+      var result = nodejieba.extract(content, 4);
+
+      console.log(result);*/
+
       // 发布成功
       res.status(200).json({
         err_code: 0,
         message: 'OK',
       })
     })
-
-    // 分词提取文章标签
-    /*var content = getAllWord((topic))
-
-    var result = nodejieba.extract(content, 4);
-
-    console.log(result);*/
 
   })
 })
@@ -172,6 +170,7 @@ router.get('/next', function (req, res) {
     }
   })
 })
+// 发表评论
 router.get('/publishchat', function (req, res) {
   var tId = req.query.topicIndex
   var chat = req.query.chat
@@ -196,20 +195,59 @@ router.get('/publishchat', function (req, res) {
   })
 })
 
-// 获取评论
+router.get('/publishreplychat', function (req, res) {
+  var rId = req.query.rId
+  var reply = req.query.reply
+  var uId = req.query.uId
+  var userName = req.query.userName
+  var tId = req.query.tId
+
+  db.query(`
+                INSERT INTO replyChat (rId,uId,tId,userName,rcReply,rcTime)
+                VALUES(` + rId + `,` + uId + `,` + tId + `,'` + userName + `','` + reply + `',NOW())
+                `, [], function (results, rows) {
+    // 发布成功
+    res.status(200).json({
+      err_code: 0,
+      message: 'OK',
+    })
+
+  })
+})
+
+// 获取评论和评论回复
 router.get('/chat', function (req, res) {
 
   var tId = req.query.topicIndex
 
   db.query(`
-            SELECT user.uId,user.userAvatar,user.userName,chat.rChat FROM
+            SELECT chat.rId,user.uId,user.userAvatar,user.userName,chat.rChat FROM
             chat,user
             where chat.tId=` + tId + ` and chat.uId=user.uId order by  rId desc`, [], function (results, rows) {
 
-    res.status(200).json({
-      err_code: 0,
-      message: 'OK',
-      results: results
+    var chatList = JSON.parse(results)
+    db.query(`
+            SELECT replyChat.rcId,replyChat.rId,replyChat.uId,replyChat.userName,rcReply FROM
+            replyChat WHERE replyChat.tId=` + tId + ` ORDER BY replyChat.rcId DESC`, [], function (results, rows) {
+      var replyList = (JSON.parse(results));
+
+      for (var i = 0; i < chatList.length; i++) {
+        var replayArr = []
+        for (var j = 0; j < replyList.length; j++) {
+          if (chatList[i].rId === replyList[j].rId) {
+            replayArr.push(replyList[j])
+          }
+        }
+        chatList[i]['replay'] = replayArr
+      }
+      console.log(chatList);
+
+
+      res.status(200).json({
+        err_code: 0,
+        message: 'OK',
+        results: JSON.stringify(chatList)
+      })
     })
   })
 })
@@ -313,13 +351,5 @@ function getWord(value) {
   return (description.substring(0, 50))
 }
 
-function getAllWord(value) {
-  let description = value.replace(/(\n)/g, "");
-  description = description.replace(/(\t)/g, "");
-  description = description.replace(/(\r)/g, "");
-  description = description.replace(/<\/?[^>]*>/g, "");
-  description = description.replace(/\s*/g, "");
-  return (description)
-}
 
 module.exports = router;
