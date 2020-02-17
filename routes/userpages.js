@@ -95,12 +95,12 @@ router.get('/usertopic', function (req, res, next) {
   var currentPage = req.query.currentPage
 
 
-  db.query(`select user.uId,tId,topic.tTopic,topic.tWords,topic.tTime,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.uId='` + uId + `' order by tId desc LIMIT ` + pageNum * (currentPage - 1) + `,` + pageNum + `;`, [], function (results, rows) {
+  db.query(`select user.uId,tId,topic.tTopic,topic.tWords,topic.tCheck,topic.tTime,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.uId='` + uId + `' order by tId desc LIMIT ` + pageNum * (currentPage - 1) + `,` + pageNum + `;`, [], function (results, rows) {
 
 
     var list = results;
 
-    db.query(`SELECT COUNT(*) FROM (select tId,topic.tTopic,topic.tTime,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.uId='` + uId + `') AS temp;`, [], function (results, rows) {
+    db.query(`SELECT COUNT(*) FROM (select tId,topic.tTopic,topic.tCheck,topic.tTime,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.uId='` + uId + `') AS temp;`, [], function (results, rows) {
       res.status(200).json({
         err_code: 0,
         message: 'OK',
@@ -110,6 +110,31 @@ router.get('/usertopic', function (req, res, next) {
     })
   })
 })
+
+// 获取其他用户发表的文章
+router.get('/userstopic', function (req, res, next) {
+
+  var uId = req.query.uId;
+  var pageNum = req.query.pageNum
+  var currentPage = req.query.currentPage
+
+
+  db.query(`select user.uId,tId,topic.tTopic,topic.tWords,topic.tCheck,topic.tTime,user.userAvatar,user.userName from topic,user WHERE topic.tCheck=1 and topic.uId = user.uId and topic.uId='` + uId + `' order by tId desc LIMIT ` + pageNum * (currentPage - 1) + `,` + pageNum + `;`, [], function (results, rows) {
+
+
+    var list = results;
+
+    db.query(`SELECT COUNT(*) FROM (select tId,topic.tTopic,topic.tCheck,topic.tTime,user.userAvatar,user.userName from topic,user WHERE topic.tCheck=1 and topic.uId = user.uId and topic.uId='` + uId + `') AS temp;`, [], function (results, rows) {
+      res.status(200).json({
+        err_code: 0,
+        message: 'OK',
+        results: list,
+        num: results
+      })
+    })
+  })
+})
+
 
 // 获取用户收藏的文章
 router.get('/usercollect', function (req, res, next) {

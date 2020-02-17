@@ -8,6 +8,66 @@ var base64 = require('js-base64')
 // 数据库操作模块
 var db = require("./../public/javascripts/db");
 
+// 获取专题
+router.get('/special', function (req, res) {
+  db.query(`
+                SELECT spLabel,spValue,spFloor,spFather FROM special WHERE spSecret=0
+                `, [], function (results, rows) {
+
+    var one = JSON.parse(results)
+    var one1 = [];
+    var one2 = [];
+    for (var i = 0; i < one.length; i++) {
+      if (Number(one[i].spFloor) === 1) {
+        one1.push(
+          {
+            value: one[i].spValue,
+            label: one[i].spLabel
+          }
+        )
+      } else if (Number(one[i].spFloor) === 2) {
+        one2.push(one[i])
+      }
+    }
+    var first = JSON.parse(JSON.stringify(one1))
+
+    for (var i = 0; i < one1.length; i++) {
+      var count = 0
+      var children = []
+      for (var j = 0; j < one2.length; j++) {
+        if (one2[j].spFather == one1[i].value) {
+          children.push(
+            {
+              value: one2[j].spValue,
+              label: one2[j].spLabel
+            }
+          )
+          count++
+        }
+      }
+      if (Number(count) !== 0) {
+        first[i]['children'] = children
+      }
+    }
+
+    one = one.map(o => {
+      return {
+        'label': o.spLabel,
+        'value': o.spValue
+      }
+    })
+
+
+    res.status(200).json({
+      err_code: 0,
+      message: 'OK',
+      special: JSON.stringify(first),
+      refer: JSON.stringify(one)
+    })
+
+
+  })
+})
 
 // 发布文章
 router.post('/publish', function (req, res) {
@@ -36,10 +96,9 @@ router.post('/publish', function (req, res) {
       insertHtml = arr[1];
     }
   }
-
   db.query(`
-                INSERT INTO topic (uId,tTopic,tHeadImage,tWords,tContents,tCollectNum,tChatNum,tModel,tTime)
-                VALUES('` + uId + `','` + theme + `','` + insertHtml + `','` + getWord(topic) + `','` + topic + `',0,0,'` + model + `',NOW())
+                INSERT INTO topic (uId,tTopic,tHeadImage,tWords,tContents,tCollectNum,tChatNum,tRecommend,tSticky,tCheck,tModel,tTime)
+                VALUES('` + uId + `','` + theme + `','` + insertHtml + `','` + getWord(topic) + `','` + topic + `',0,0,0,0,0,'` + model + `',NOW())
                 `, [], function (results, rows) {
 
     db.query(`
@@ -94,7 +153,9 @@ router.post('/uplodtopicimg', function (req, res) {
 router.post('/updatetopic', function (req, res) {
   var body = req.body;
   var theme = body.userTheme;
-  var topic = body.userTopic
+  var topic = body.userTopic;
+  var model = body.tModel
+
 
   var tId = body.tId
 
@@ -115,9 +176,8 @@ router.post('/updatetopic', function (req, res) {
     }
   }
   db.query(`
-                  UPDATE topic SET tHeadImage='` + insertHtml + `',tTopic='` + theme + `', tContents='` + topic + `' WHERE tId=` + tId + `
+                  UPDATE topic SET tModel='` + model + `', tCheck=0,tWords='` + getWord(topic) + `', tHeadImage='` + insertHtml + `',tTopic='` + theme + `', tContents='` + topic + `' WHERE tId=` + tId + `
                 `, [], function (results, rows) {
-
     // 修改成功
     res.status(200).json({
       err_code: 0,
@@ -131,7 +191,7 @@ router.post('/updatetopic', function (req, res) {
 router.get('/prev', function (req, res) {
   var topicIndex = req.query.topicIndex
 
-  db.query(`select tId FROM topic where tId>  ` + topicIndex + `  limit 1`, [], function (results, rows) {
+  db.query(`select tId FROM topic where tCheck=1 and tId>  ` + topicIndex + `  limit 1`, [], function (results, rows) {
 
     if (results === '[]') {
       res.status(200).json({
@@ -154,7 +214,7 @@ router.get('/next', function (req, res) {
 
   var topicIndex = req.query.topicIndex
 
-  db.query(`select tId FROM topic where tId<  ` + topicIndex + ` order by  tId desc limit 1`, [], function (results, rows) {
+  db.query(`select tId FROM topic where tCheck=1 and tId<  ` + topicIndex + ` order by  tId desc limit 1`, [], function (results, rows) {
 
     if (results === '[]') {
       res.status(200).json({
@@ -183,13 +243,21 @@ router.get('/publishchat', function (req, res) {
                 `, [], function (results, rows) {
 
     db.query(`
+                SELECT LAST_INSERT_ID(rId) AS value FROM chat
+                `, [], function (results, rows) {
+
+      var rId = (JSON.parse(results)[JSON.parse(results).length - 1].value);
+
+      db.query(`
                 UPDATE topic SET tChatNum=tChatNum+1 WHERE tId=` + tId + `
             `, [], function (results, rows) {
 
-      // 发布成功
-      res.status(200).json({
-        err_code: 0,
-        message: 'OK',
+        // 发布成功
+        res.status(200).json({
+          err_code: 0,
+          message: 'OK',
+          rId: rId
+        })
       })
     })
   })
@@ -238,11 +306,8 @@ router.get('/chat', function (req, res) {
             replayArr.push(replyList[j])
           }
         }
-        chatList[i]['replay'] = replayArr
+        chatList[i]['reply'] = replayArr
       }
-      console.log(chatList);
-
-
       res.status(200).json({
         err_code: 0,
         message: 'OK',

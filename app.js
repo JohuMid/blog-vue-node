@@ -75,11 +75,17 @@ var db = require("./public/javascripts/db");
 
 io.on('connection', function (socket) {
 
+  console.log('一个用户上线');
+
 
   socket.on('online', value => {
+    // value是用户Id
+    // console.log(value);
+
     // 查询有无消息状态
     db.query(`SELECT topic.tTopic,topic.tId,user.userName,user.uId,tempstate.type FROM tempstate,user,topic WHERE topic.tId = tempstate.tId and user.uId = tempstate.fromId and tempstate.toId=` + value + ``, [], function (results, rows) {
 
+      console.log(results);
 
       if (results === '[]') {
         // 服务器向客户端推送
@@ -91,11 +97,9 @@ io.on('connection', function (socket) {
         })
       }
     })
-
   })
 
   // 服务器接收客户端发送数据
-
 
   // 收藏
   socket.on('star', value => {
@@ -151,6 +155,35 @@ io.on('connection', function (socket) {
     db.query(`
                 INSERT INTO state (fromId,toId,tId,type,sTime)
                 VALUES(` + value.fromId + `,` + value.toId + `,` + value.tId + `,'reply',NOW())
+                `, [], function (results, rows) {
+
+    })
+  });
+  // 通过审核
+  socket.on('pass', value => {
+    // 点击收藏
+    // console.log(value.fromId);
+    // console.log(value.toId);
+
+    // 储存评论的状态
+    db.query(`
+                INSERT INTO state (fromId,toId,tId,type,sTime)
+                VALUES(` + value.fromId + `,` + value.toId + `,` + value.tId + `,'pass',NOW())
+                `, [], function (results, rows) {
+
+    })
+  });
+
+  // 通过审核
+  socket.on('nopass', value => {
+    // 点击收藏
+    // console.log(value.fromId);
+    // console.log(value.toId);
+
+    // 储存评论的状态
+    db.query(`
+                INSERT INTO state (fromId,toId,tId,type,sTime)
+                VALUES(` + value.fromId + `,` + value.toId + `,` + value.tId + `,'nopass',NOW())
                 `, [], function (results, rows) {
 
     })

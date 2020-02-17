@@ -8,6 +8,10 @@ var db = require("./../public/javascripts/db");
 // 分词模块
 var nodejieba = require("nodejieba");
 
+// 获取当前日期
+var date = new Date()
+
+date = date.toLocaleDateString();
 
 router.get('/', function (req, res, next) {
 
@@ -56,24 +60,47 @@ router.get('/bannertopic', function (req, res, next) {
 // 查找文章简略信息
 router.get('/topiclist', function (req, res, next) {
 
+  db.query(`select * from operation WHERE oDate = '` + date + `'`, [], function (results, rows) {
+
+    if (results === '[]') {
+      db.query(`
+                INSERT INTO operation (oVisit,oRead,oLogin,oRegister,oDate,oTime)
+                VALUES(0,0,0,0,'` + date + `',NOW())
+                `, [], function (results, rows) {
+      })
+    } else {
+      db.query(`
+                UPDATE operation set oVisit=oVisit+1
+                `, [], function (results, rows) {
+      })
+    }
+  })
+
+
   var page = req.query.page
 
   if (Number(page) === 0) {
-    db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,topic.tRecommend,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId order by tId desc LIMIT 8`, [], function (results, rows) {
 
-      var list = results;
+    db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tSticky,topic.tTime,topic.tWords,topic.tHeadImage,topic.tRecommend,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.tCheck=1 and topic.tSticky=1 order by tId`, [], function (results, rows) {
+      var sticky = (results);
+      db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,topic.tRecommend,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.tCheck=1 order by tId desc LIMIT 8 `, [], function (results, rows) {
 
-      db.query(`SELECT COUNT(*) from topic;`, [], function (results, rows) {
-        res.status(200).json({
-          err_code: 0,
-          message: 'OK',
-          results: list,
-          num: results
+        var list = results;
+
+        db.query(`SELECT COUNT(*) from topic;`, [], function (results, rows) {
+          res.status(200).json({
+            err_code: 0,
+            message: 'OK',
+            results: list,
+            sticky: sticky,
+            num: results
+          })
         })
       })
     })
+
   } else {
-    db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,topic.tRecommend,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId order by tId desc LIMIT ` + (8 + (page - 1) * 2) + `,2`, [], function (results, rows) {
+    db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,topic.tRecommend,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.tCheck=1 order by tId desc LIMIT ` + (8 + (page - 1) * 2) + `,2`, [], function (results, rows) {
 
       res.status(200).json({
         err_code: 0,
@@ -84,18 +111,48 @@ router.get('/topiclist', function (req, res, next) {
   }
 })
 
-
+// 搜索界面请求所有文章信息
 router.get('/alltopiclist', function (req, res, next) {
-  db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId order by tId desc`, [], function (results, rows) {
-    res.status(200).json({
-      err_code: 0,
-      message: 'OK',
-      results: results,
+
+  var searchWord = req.query.searchInput
+
+  var topicWords = nodejieba.extract(searchWord, 2);
+
+  if (topicWords[0] === undefined) {
+    db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.tCheck=1 and tTopic like '%` + searchWord + `%' order by topic.tId desc`, [], function (results, rows) {
+      res.status(200).json({
+        err_code: 0,
+        message: 'OK',
+        results: results,
+      })
     })
-  })
+  } else if (topicWords[1] === undefined) {
+    db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.tCheck=1 and tTopic like '%` + topicWords[0].word + `%' order by topic.tId desc`, [], function (results, rows) {
+      res.status(200).json({
+        err_code: 0,
+        message: 'OK',
+        results: results,
+      })
+    })
+  } else {
+    db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.tCheck=1 and (tTopic like '%` + topicWords[0].word + `%' or tTopic like '%` + topicWords[1].word + `%') order by topic.tId desc`, [], function (results, rows) {
+
+      console.log(results);
+      res.status(200).json({
+        err_code: 0,
+        message: 'OK',
+        results: results,
+      })
+    })
+
+  }
 })
+// 搜索界面请求所有用户信息
 router.get('/alluserlist', function (req, res, next) {
-  db.query(`select user.uId,user.userAvatar,user.userName,user.userStatement from user order by uId desc`, [], function (results, rows) {
+
+  var user = req.query.searchInput
+
+  db.query(`select user.uId,user.userAvatar,user.userName,user.userStatement from user WHERE userName like '%` + user + `%' order by uId desc`, [], function (results, rows) {
     res.status(200).json({
       err_code: 0,
       message: 'OK',
@@ -104,7 +161,7 @@ router.get('/alluserlist', function (req, res, next) {
   })
 })
 
-// 查找文章详细信息
+// 查找文章详细信息，和最近更新
 router.post('/topicdetail', function (req, res, next) {
   var body = req.body;
   var topicIndex = body.topicIndex;
@@ -121,7 +178,7 @@ router.post('/topicdetail', function (req, res, next) {
     var words = nodejieba.extract(content, 40);
 
     db.query(`
-           select tId,topic.tTopic from topic,user WHERE topic.uId = user.uId and topic.uId='` + uId + `' order by tId desc LIMIT 3;`, [], function (results, rows) {
+           select tId,topic.tTopic from topic,user WHERE tCheck=1 and topic.uId = user.uId and topic.uId='` + uId + `' order by tId desc LIMIT 3;`, [], function (results, rows) {
       var topicList = (results);
       res.status(200).json({
         err_code: 0,
@@ -132,6 +189,61 @@ router.post('/topicdetail', function (req, res, next) {
       })
     })
   })
+
+  // 存储运营数据
+  db.query(`select * from operation WHERE oDate = '` + date + `'`, [], function (results, rows) {
+
+    if (results === '[]') {
+      db.query(`
+                INSERT INTO operation (oVisit,oRead,oLogin,oRegister,oDate,oTime)
+                VALUES(0,0,0,0,'` + date + `',NOW())
+                `, [], function (results, rows) {
+      })
+    } else {
+      db.query(`
+                UPDATE operation set oRead=oRead+1
+                `, [], function (results, rows) {
+      })
+    }
+  })
+})
+// 获取阅读更多
+router.get('/readmore', function (req, res, next) {
+
+  var searchWord = req.query.tTopic
+
+  console.log(searchWord);
+
+  var topicWords = nodejieba.extract(searchWord, 2);
+
+  if (topicWords[0] === undefined) {
+    db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.tCheck=1 and tTopic like '%` + searchWord + `%' order by topic.tId desc LIMIT 5`, [], function (results, rows) {
+      res.status(200).json({
+        err_code: 0,
+        message: 'OK',
+        results: results,
+      })
+    })
+
+  } else if (topicWords[1] === undefined) {
+    db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.tCheck=1 and tTopic like '%` + topicWords[0].word + `%' order by topic.tId desc LIMIT 5`, [], function (results, rows) {
+      res.status(200).json({
+        err_code: 0,
+        message: 'OK',
+        results: results,
+      })
+    })
+  } else {
+    db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.tCheck=1 and (tTopic like '%` + topicWords[0].word + `%' or tTopic like '%` + topicWords[1].word + `%') order by topic.tId desc LIMIT 5`, [], function (results, rows) {
+
+      res.status(200).json({
+        err_code: 0,
+        message: 'OK',
+        results: results,
+      })
+    })
+
+  }
 })
 
 
@@ -161,22 +273,19 @@ router.get('/tagtopic', function (req, res, next) {
   var page = req.query.page
 
 
-  db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,topic.tModel,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId  order by tId desc`, [], function (results, rows) {
+  db.query(`select topic.uId,topic.tId,topic.tTopic,topic.tTime,topic.tWords,topic.tHeadImage,topic.tModel,user.userAvatar,user.userName from topic,user WHERE topic.uId = user.uId and topic.tCheck=1  order by tId desc`, [], function (results, rows) {
 
 
     var res1 = (JSON.parse(results));
 
-    for (var i = 0; i < res1.length; i++) {
-      if (res1[i].tModel) {
-        res1[i].tModel = (JSON.parse(res1[i].tModel));
-      }
-    }
-
     var tagArr = []
     for (var j = 0; j < res1.length; j++) {
       if (res1[j].tModel) {
-        if (res1[j].tModel[0][tag] === 1) {
-          tagArr.push(res1[j])
+        var model = JSON.parse(res1[j].tModel)
+        for (var i = 0; i < model.length; i++) {
+          if (tag == model[i]) {
+            tagArr.push(res1[j])
+          }
         }
       }
     }
@@ -185,7 +294,7 @@ router.get('/tagtopic', function (req, res, next) {
     if (Number(page) === 0) {
       rightArr = tagArr.slice(0, 7)
 
-      console.log(rightArr);
+      // console.log(rightArr);
       res.status(200).json({
         err_code: 0,
         message: 'OK',

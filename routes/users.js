@@ -9,6 +9,9 @@ var md5 = require('blueimp-md5')
 var uuid = require('uuid')
 //引入数据库封装模块
 var db = require("./../public/javascripts/db");
+// 获取当前日期
+var date = new Date()
+date = date.toLocaleDateString();
 
 /* GET users listing. */
 router.get('/', function (req, res, next) {
@@ -16,7 +19,7 @@ router.get('/', function (req, res, next) {
 });
 
 
-//用来存验证码的数组
+// 获取验证码
 router.get('/vecode', function (req, res) {
 
   var email = req.query.userEmail;
@@ -92,8 +95,8 @@ router.post('/register', function (req, res) {
 
       // 账号不存在，存储用户信息
       db.query(`
-                INSERT INTO user (userName,userPassword,userEmail,userAvatar,userCollectNum,userAttentionNum,userSearchNum,userTopicNum,userLoginNum,userRegDate)
-                VALUES('` + username + `','` + md5(md5(password)) + `','` + email + `','avatar.png',0,0,0,0,0,NOW())
+                INSERT INTO user (userName,userPassword,userEmail,userAvatar,userCollectNum,userAttentionNum,userTopicNum,userLoginNum,userRegDate)
+                VALUES('` + username + `','` + md5(md5(password)) + `','` + email + `','avatar.png',0,0,0,0,NOW())
                 `, [], function (results, rows) {
 
         // 查出用户对应的uId
@@ -113,6 +116,23 @@ router.post('/register', function (req, res) {
               err_code: 0,
               message: 'OK',
             })
+          })
+
+          // 存储运营数据
+          db.query(`select * from operation WHERE oDate = '` + date + `'`, [], function (results, rows) {
+
+            if (results === '[]') {
+              db.query(`
+                INSERT INTO operation (oVisit,oRead,oLogin,oRegister,oDate,oTime)
+                VALUES(0,0,0,0,'` + date + `',NOW())
+                `, [], function (results, rows) {
+              })
+            } else {
+              db.query(`
+                UPDATE operation set oRegister=oRegister+1
+                `, [], function (results, rows) {
+              })
+            }
           })
         })
       })
@@ -153,8 +173,6 @@ router.post('/login', function (req, res) {
             `, [], function (results, rows) {
 
         })
-
-
         // 存入服务器端的session
         req.session.user = {
           token: uuid.v1(),
@@ -162,10 +180,28 @@ router.post('/login', function (req, res) {
           uId: results.uId,
           userAvatar: results.userAvatar
         };
+
         res.status(200).json({
           err_code: 0,
           message: 'OK',
           user: req.session.user
+        })
+
+        // 存储运营数据
+        db.query(`select * from operation WHERE oDate = '` + date + `'`, [], function (results, rows) {
+
+          if (results === '[]') {
+            db.query(`
+                INSERT INTO operation (oVisit,oRead,oLogin,oRegister,oDate,oTime)
+                VALUES(0,0,0,0,'` + date + `',NOW())
+                `, [], function (results, rows) {
+            })
+          } else {
+            db.query(`
+                UPDATE operation set oLogin=oLogin+1
+                `, [], function (results, rows) {
+            })
+          }
         })
       }
     })
@@ -195,9 +231,6 @@ router.post('/login', function (req, res) {
     })
   }
 })
-
-
-// 密码修改验证码数组
 
 // 忘记密码验证码邮件发送
 router.get('/forvecode', function (req, res, next) {
