@@ -42,39 +42,19 @@ router.get('/', function (req, res, next) {
 // 查找大小banner信息
 router.get('/bannertopic', function (req, res, next) {
 
-  db.query(`SELECT topic.tTopic,topic.tHeadImage,collect.tId,count(*) AS count from topic,user,collect WHERE topic.uId=user.uId and collect.tId=topic.tId and topic.tHeadImage is not null GROUP BY tId  ORDER BY count DESC  LIMIT 3`, [], function (results, rows) {
+  db.query(`SELECT topic.tId,topic.tTopic,topic.tHeadImage,topic.tCollectNum from topic WHERE topic.tHeadImage is not null GROUP BY tId ORDER BY topic.tCollectNum DESC  LIMIT 3`, [], function (results, rows) {
 
-    var list = results
 
-    db.query(`SELECT topic.tTopic,topic.tHeadImage,chat.tId,count(*) AS count from topic,user,chat WHERE topic.uId=user.uId and chat.tId=topic.tId and topic.tHeadImage is not null GROUP BY tId  ORDER BY count DESC  LIMIT 3`, [], function (results, rows) {
-      res.status(200).json({
+    res.status(200).json({
         err_code: 0,
         message: 'OK',
-        results1: list,
-        results2: results
+        results1: results,
       })
     })
-  })
 })
 
 // 查找文章简略信息
 router.get('/topiclist', function (req, res, next) {
-
-  db.query(`select * from operation WHERE oDate = '` + date + `'`, [], function (results, rows) {
-
-    if (results === '[]') {
-      db.query(`
-                INSERT INTO operation (oVisit,oRead,oLogin,oRegister,oDate,oTime)
-                VALUES(0,0,0,0,'` + date + `',NOW())
-                `, [], function (results, rows) {
-      })
-    } else {
-      db.query(`
-                UPDATE operation set oVisit=oVisit+1
-                `, [], function (results, rows) {
-      })
-    }
-  })
 
 
   var page = req.query.page
@@ -109,6 +89,22 @@ router.get('/topiclist', function (req, res, next) {
       })
     })
   }
+  // 存储运营数据
+  db.query(`select * from operation WHERE oDate = '` + date + `'`, [], function (results, rows) {
+
+    if (results === '[]') {
+      db.query(`
+                INSERT INTO operation (oVisit,oRead,oLogin,oRegister,oDate,oTime)
+                VALUES(0,0,0,0,'` + date + `',NOW())
+                `, [], function (results, rows) {
+      })
+    } else {
+      db.query(`
+                UPDATE operation set oVisit=oVisit+1
+                `, [], function (results, rows) {
+      })
+    }
+  })
 })
 
 // 搜索界面请求所有文章信息

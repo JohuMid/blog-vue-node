@@ -253,6 +253,31 @@ router.post('/getchatsdata', function (req, res) {
   }
 })
 
+// 获取回复数据
+router.post('/getreplysdata', function (req, res) {
+
+  var body = req.body
+  var pageNum = body.pageNum
+  var currentPage = body.currentPage
+
+  db.query(`SELECT rcId,rChat,replychat.rcReply,user.userName,rcTime FROM replychat,chat,user WHERE chat.rId = replychat.rId and user.uId=replychat.uId  order by rcId LIMIT ` + pageNum * (currentPage - 1) + `,` + pageNum + `;`, [], function (results, rows) {
+
+    var list = results;
+
+    console.log(JSON.parse(list));
+
+    db.query(`SELECT COUNT(*) from replychat;`, [], function (results, rows) {
+      res.status(200).json({
+        err_code: 0,
+        message: 'OK',
+        results: list,
+        num: results
+      })
+    })
+  })
+})
+
+
 // 删除评论
 router.get('/delchat', function (req, res) {
   var rId = req.query.rId;
@@ -264,6 +289,18 @@ router.get('/delchat', function (req, res) {
     })
   })
 })
+// 删除回复
+router.get('/delreply', function (req, res) {
+  var rcId = req.query.rcId;
+
+  db.query(`DELETE FROM replychat WHERE rcId = ` + rcId + ``, [], function (results, rows) {
+    res.status(200).json({
+      err_code: 0,
+      message: 'OK',
+    })
+  })
+})
+
 
 // 删除文章
 router.get('/deltopic', function (req, res) {
@@ -656,7 +693,7 @@ router.post('/operationdata', function (req, res) {
       // console.log(operation[i]);
       for (var key in operation[i]) {
         if (obj[key] === undefined) {
-          console.log('没得');
+          // console.log('没得');
           obj[key] = [];
           obj[key].push(operation[i][key])
 
@@ -665,7 +702,6 @@ router.post('/operationdata', function (req, res) {
         }
       }
     }
-
 
     res.status(200).json({
       err_code: 0,

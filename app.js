@@ -4,6 +4,10 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var session = require('express-session')
+// 获取当前日期
+var date = new Date()
+
+date = date.toLocaleDateString();
 
 
 var indexRouter = require('./routes/index');
@@ -67,6 +71,33 @@ app.use(function (err, req, res, next) {
 
 var server = app.listen(3000);
 
+// node定时任务，每日零点插入运营数据
+var schedule = require('node-schedule');
+
+var scheduleCronstyle = () => {
+  //每天零时一分定时执行一次:
+  schedule.scheduleJob('0 1 0 * * *', () => {
+    db.query(`select * from operation WHERE oDate = '` + date + `'`, [], function (results, rows) {
+
+      if (results === '[]') {
+        db.query(`
+                INSERT INTO operation (oVisit,oRead,oLogin,oRegister,oDate,oTime)
+                VALUES(0,0,0,0,'` + date + `',NOW())
+                `, [], function (results, rows) {
+        })
+      } else {
+        db.query(`
+                UPDATE operation set oVisit=oVisit+1
+                `, [], function (results, rows) {
+        })
+      }
+    })
+  });
+}
+
+scheduleCronstyle();
+
+// socket消息提示
 var io = require('socket.io')(server);
 var _ = require('underscore');
 

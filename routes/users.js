@@ -33,6 +33,21 @@ router.get('/vecode', function (req, res) {
     if (results === '[]') {
       db.query(`INSERT INTO tempvecode (userEmail,vecode,vTime)
                 VALUES('` + email + `','` + vecode + `',NOW())`, [], function (results, rows) {
+
+        console.log(vecode);
+
+        var mail = {
+          // 发件人
+          from: '<17782161804@163.com>',
+          // 主题
+          subject: 'SCF验证码',
+          // 收件人
+          to: email,
+          // 邮件内容，HTML格式
+          text: '你好' + nickname + '，用' + vecode + '作为你的登录验证码'//发送验证码
+        };
+        nodemail(mail);
+
         // 存储临时验证码成功
         res.status(200).json({
           err_code: 0,
@@ -47,26 +62,6 @@ router.get('/vecode', function (req, res) {
       })
     }
   })
-
-
-  console.log(vecode);
-  // 待修改
-  /*arr = [];
-  arr.push(vecode);*/
-
-  // console.log(arr);
-  var mail = {
-    // 发件人
-    from: '<17782161804@163.com>',
-    // 主题
-    subject: 'SCF验证码',
-    // 收件人
-    to: email,
-    // 邮件内容，HTML格式
-    text: '你好' + nickname + '，用' + vecode + '作为你的登录验证码'//发送验证码
-  };
-  nodemail(mail);
-
 });
 
 router.post('/register', function (req, res) {

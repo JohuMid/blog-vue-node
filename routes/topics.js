@@ -176,7 +176,7 @@ router.post('/updatetopic', function (req, res) {
     }
   }
   db.query(`
-                  UPDATE topic SET tModel='` + model + `', tCheck=0,tWords='` + getWord(topic) + `', tHeadImage='` + insertHtml + `',tTopic='` + theme + `', tContents='` + topic + `' WHERE tId=` + tId + `
+                  UPDATE topic SET tModel="` + model + `", tCheck=0,tWords="` + getWord(topic) + `", tHeadImage="` + insertHtml + `",tTopic="` + theme + `", tContents="` + topic + `" WHERE tId=` + tId + `
                 `, [], function (results, rows) {
     // 修改成功
     res.status(200).json({
@@ -185,7 +185,6 @@ router.post('/updatetopic', function (req, res) {
     })
   })
 })
-
 
 // 上一篇
 router.get('/prev', function (req, res) {
